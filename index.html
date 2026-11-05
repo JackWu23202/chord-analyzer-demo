@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>chord_analyzer — AI 音樂和弦辨識與樂理分析引擎 | 作品集展示</title>
+  <meta name="description" content="基於深度學習 (BTC Transformer, Demucs 4-Stem) 與聲學數位訊號處理 (DSP) 的端到端音樂和弦辨識、樂理分析與毫秒級同步樂譜系統。">
+  <meta property="og:title" content="chord_analyzer — AI 音樂和弦辨識與樂理分析引擎">
+  <meta property="og:description" content="周杰倫《晴天》全曲 AI 辨識實測、互動樂譜播放、演算法 DevTools 與 POP909 評測基準。">
+  <meta property="og:image" content="https://jackwu23202.github.io/chord-analyzer-demo/images/portfolio_preview.png">
+  <meta property="og:type" content="website">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0a0c10;
+      --bg-card: #121620;
+      --bg-card-hover: #171d2b;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(99, 102, 241, 0.4);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --primary: #6366f1;
+      --primary-light: #818cf8;
+      --accent-cyan: #38bdf8;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --font-sans: 'Plus Jakarta Sans', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 15% 10%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 85% 25%, rgba(56, 189, 248, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 50% 80%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    /* 頂部導航欄 */
+    header.navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10, 12, 16, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.85rem 1.5rem;
+    }
+    .nav-container {
+      max-width: 1240px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: var(--text-main);
+    }
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--primary), var(--accent-cyan));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1rem;
+      color: #fff;
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.4);
+    }
+    .brand-title {
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+    .brand-version {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 2px 7px;
+      border-radius: 20px;
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--primary-light);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      font-weight: 600;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      list-style: none;
+    }
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text-main); }
+    .btn-github {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: #1e2433;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 0.45rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-github:hover {
+      background: #2a3347;
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+
+    /* 主要容器 */
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 5rem;
+    }
+
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      padding: 3rem 0 2.5rem;
+      max-width: 920px;
+      margin: 0 auto;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.9rem;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: var(--primary-light);
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+    .hero-badge .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 8px var(--accent-emerald);
+    }
+    .hero h1 {
+      font-size: 2.85rem;
+      line-height: 1.2;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.25rem;
+      background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 2rem;
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: linear-gradient(135deg, var(--primary), #4f46e5);
+      color: #fff;
+      padding: 0.75rem 1.6rem;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      box-shadow: 0 4px 18px rgba(99, 102, 241, 0.35);
+      transition: all 0.2s;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(99, 102, 241, 0.5);
+    }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 0.75rem 1.4rem;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    /* 關鍵評測指標卡片 */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 1rem;
+      margin-bottom: 3.5rem;
+    }
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem 1.4rem;
+      text-align: left;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .metric-card:hover {
+      border-color: var(--border-focus);
+      transform: translateY(-2px);
+    }
+    .metric-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    }
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 1.9rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.1;
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: baseline;
+      gap: 0.3rem;
+    }
+    .metric-val span { font-size: 1rem; color: var(--accent-cyan); font-weight: 500; }
+    .metric-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 0.25rem;
+    }
+    .metric-desc {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    /* 核心展示區 (Showcase Tabs) */
+    .showcase-section {
+      margin-bottom: 4rem;
+    }
+    .section-header {
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .section-title {
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .section-subtitle {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    /* Tab Switcher */
+    .tab-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 1.25rem;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      flex: 1;
+      min-width: 170px;
+      padding: 0.65rem 1rem;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover { color: var(--text-main); }
+    .tab-btn.active {
+      background: #1f2738;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .tab-btn .badge-pill {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: rgba(99, 102, 241, 0.2);
+      color: var(--primary-light);
+    }
+
+    /* 展示卡片與 iframe 視窗 */
+    .viewer-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    }
+    .viewer-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1.25rem;
+      background: #0e121a;
+      border-bottom: 1px solid var(--border);
+    }
+    .viewer-status {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .viewer-status .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 8px var(--accent-emerald);
+    }
+    .viewer-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .viewer-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      background: #181f2d;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      text-decoration: none;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .viewer-btn:hover {
+      background: #232c3f;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .tab-panel {
+      display: none;
+    }
+    .tab-panel.active {
+      display: block;
+    }
+    .preview-frame {
+      width: 100%;
+      height: 780px;
+      border: none;
+      display: block;
+      background: #0d0d0d;
+    }
+
+    /* CLI 實錄面板 */
+    .terminal-box {
+      background: #07090e;
+      padding: 1.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: #e2e8f0;
+      line-height: 1.55;
+      overflow-x: auto;
+      max-height: 720px;
+    }
+    .terminal-box .cmd { color: var(--accent-emerald); font-weight: 600; }
+    .terminal-box .comment { color: var(--text-dim); }
+    .terminal-box .key-hl { color: var(--accent-cyan); font-weight: 600; }
+    .terminal-box .chord-hl { color: var(--accent-amber); font-weight: 600; }
+
+    /* 核心技術架構管線 */
+    .pipeline-section {
+      margin-bottom: 4.5rem;
+    }
+    .pipeline-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+      margin-top: 1.5rem;
+    }
+    .step-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.5rem;
+      position: relative;
+      transition: all 0.2s;
+    }
+    .step-card:hover {
+      border-color: var(--border-focus);
+      background: var(--bg-card-hover);
+      transform: translateY(-2px);
+    }
+    .step-badge {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--primary-light);
+      background: rgba(99, 102, 241, 0.12);
+      padding: 2px 8px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-bottom: 0.75rem;
+    }
+    .step-card h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: #fff;
+    }
+    .step-card p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .step-card .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 1rem;
+    }
+    .tech-tag {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--accent-cyan);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* 深度專題卡片 (Deep Dives) */
+    .deep-dive-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    .dive-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .dive-img-wrap {
+      width: 100%;
+      height: 220px;
+      overflow: hidden;
+      background: #080a0f;
+      border-bottom: 1px solid var(--border);
+    }
+    .dive-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top;
+      transition: transform 0.3s ease;
+    }
+    .dive-card:hover .dive-img-wrap img {
+      transform: scale(1.03);
+    }
+    .dive-body {
+      padding: 1.4rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .dive-body h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.5rem;
+    }
+    .dive-body p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 1rem;
+      flex: 1;
+    }
+
+    /* 評測數據對照表 */
+    .benchmark-table-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow-x: auto;
+      margin-top: 1.5rem;
+    }
+    table.bench-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      text-align: left;
+    }
+    table.bench-table th, table.bench-table td {
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+    table.bench-table th {
+      background: #0e121a;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    table.bench-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .table-badge {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+    .badge-win { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
+    .badge-base { background: rgba(148, 163, 184, 0.12); color: var(--text-muted); }
+
+    /* Footer */
+    footer.site-footer {
+      border-top: 1px solid var(--border);
+      padding: 3rem 1.5rem;
+      background: #080a0e;
+      color: var(--text-dim);
+      font-size: 0.88rem;
+    }
+    .footer-container {
+      max-width: 1240px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+    }
+    .footer-left p { margin-top: 0.25rem; }
+    .footer-links {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      list-style: none;
+    }
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--text-main); }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 2.1rem; }
+      .preview-frame { height: 560px; }
+      .metrics-grid { grid-template-columns: 1fr 1fr; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 頂部導航 -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="#" class="brand">
+        <div class="brand-icon">♩</div>
+        <span class="brand-title">chord_analyzer</span>
+        <span class="brand-version">v1.5.0</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#showcase">實測展示</a></li>
+        <li><a href="#architecture">核心架構</a></li>
+        <li><a href="#benchmarks">評測數據</a></li>
+        <li><a href="#engineering">工程規範</a></li>
+      </ul>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <a href="https://github.com/JackWu23202/chord-analyzer-demo" target="_blank" rel="noopener" class="btn-github">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub 倉庫
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="hero-badge">
+        <span class="dot"></span>
+        AI 音樂資訊檢索 (MIR) 與樂理分析引擎 · 作品集專案
+      </div>
+      <h1>從真實聲學訊號<br>直達專業級互動樂譜</h1>
+      <p>
+        結合深度學習分軌 (Demucs 4-Stem)、雙頻段高解析色度圖 (CQT/STFT Chroma) 與貝氏和聲先驗，
+        實現毫秒級和弦辨識、轉位斜線低音追蹤、調式分析與純純前端零依賴同步樂譜渲染。
+      </p>
+      <div class="hero-actions">
+        <a href="#showcase" class="btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          線上體驗《晴天》AI 互動樂譜
+        </a>
+        <a href="sunny_day.analyze.html" target="_blank" class="btn-secondary">
+          獨立全螢幕樂譜 ↗
+        </a>
+        <a href="sunny_day.devtools.html" target="_blank" class="btn-secondary">
+          演算法 DevTools ↗
+        </a>
+      </div>
+    </section>
+
+    <!-- 關鍵指標卡片 -->
+    <section class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-val">909<span>+</span></div>
+        <div class="metric-label">POP909 權威基準</div>
+        <div class="metric-desc">涵蓋中央音樂學院 909 首多軌真實華語金曲評測驗證</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">&lt; 0.20<span>s</span></div>
+        <div class="metric-label">即時分析係數 (RTF)</div>
+        <div class="metric-desc">CPU 單核極速推論，5 分鐘流行歌在數秒內完成解析</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">123<span>/123</span></div>
+        <div class="metric-label">回歸門禁 100% 通過</div>
+        <div class="metric-desc">含 49 項單元測試、24 項聲學門禁與 Node.js 前端測試</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">0<span>Deps</span></div>
+        <div class="metric-label">純靜態可攜式報告</div>
+        <div class="metric-desc">單一 HTML 封裝 WebAudio 播放器、移調器與 localStorage</div>
+      </div>
+    </section>
+
+    <!-- 實測展示區塊 (Live Showcase) -->
+    <section id="showcase" class="showcase-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">實時分析展示：周杰倫《晴天》</h2>
+          <p class="section-subtitle">輸入 YouTube 官方 MV 音訊，由 chord_analyzer v1.5.0 引擎全自動輸出</p>
+        </div>
+      </div>
+
+      <!-- Tab 控制切換 -->
+      <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('sheet-tab', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+          1. 互動樂譜與同步播放
+          <span class="badge-pill">即時試聽</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('devtools-tab', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
+          2. 演算法 DevTools 診斷面板
+          <span class="badge-pill">特徵頻譜</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('cli-tab', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+          3. CLI 終端執行實錄
+          <span class="badge-pill">Terminal</span>
+        </button>
+      </div>
+
+      <!-- Viewer Container -->
+      <div class="viewer-card">
+        
+        <!-- Tab 1: 互動樂譜 -->
+        <div id="sheet-tab" class="tab-panel active">
+          <div class="viewer-bar">
+            <div class="viewer-status">
+              <span class="status-dot"></span>
+              周杰倫 Jay Chou - 晴天 (Sunny Day) · G 大調 (68.6 BPM) · 206 和弦片段
+            </div>
+            <div class="viewer-actions">
+              <span style="font-size: 0.8rem; color: var(--text-dim); margin-right: 0.5rem;">點擊小節跳轉播放 · 支援 Capo 與升降調</span>
+              <a href="sunny_day.analyze.html" target="_blank" class="viewer-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                新分頁全螢幕開啟
+              </a>
+            </div>
+          </div>
+          <iframe src="sunny_day.analyze.html" class="preview-frame" title="晴天 互動和弦譜"></iframe>
+        </div>
+
+        <!-- Tab 2: DevTools 診斷 -->
+        <div id="devtools-tab" class="tab-panel">
+          <div class="viewer-bar">
+            <div class="viewer-status">
+              <span class="status-dot" style="background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan);"></span>
+              Analyzer DevTools · STFT 頻譜熱圖 · CQT 84-bin 音級能量 · 60 和弦活化機率矩陣
+            </div>
+            <div class="viewer-actions">
+              <a href="sunny_day.devtools.html" target="_blank" class="viewer-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                獨立開啟 DevTools
+              </a>
+            </div>
+          </div>
+          <iframe src="sunny_day.devtools.html" class="preview-frame" title="晴天 DevTools 診斷面板"></iframe>
+        </div>
+
+        <!-- Tab 3: CLI 終端 -->
+        <div id="cli-tab" class="tab-panel">
+          <div class="viewer-bar">
+            <div class="viewer-status">
+              <span class="status-dot" style="background: var(--accent-amber); box-shadow: 0 0 8px var(--accent-amber);"></span>
+              CLI Console Output · Python 3.11 · analyze v1.5.0
+            </div>
+            <div class="viewer-actions">
+              <button class="viewer-btn" onclick="navigator.clipboard.writeText('analyze https://youtu.be/DYptgVvkVLQ --html --devtools')">複製 CLI 指令</button>
+            </div>
+          </div>
+          <div class="terminal-box">
+<span class="cmd">&gt; analyze "https://youtu.be/DYptgVvkVLQ" --chords --bass --bpm --modes --html</span>
+<span class="comment">[下載] 取得音訊: https://youtu.be/DYptgVvkVLQ</span>
+<span class="comment">[下載] 完成: 周杰倫 Jay Chou【晴天 Sunny Day】-Official Music Video</span>
+==============================================================
+檔案: 周杰倫 Jay Chou - 晴天 (Sunny Day)
+  長度 5:18 | 取樣率 44100 Hz | 音準偏移 +2 cents
+  分軌預處理: 4STEM (偵測到強烈低頻衝擊與人聲干擾，啟動 4-Stem 深度分離)
+  曲風推估: POP_BALLAD (82% | 流行抒情和弦先驗)
+
+  判定調性: <span class="key-hl">G 大調 (G major)</span>
+            E minor 為其關係小調
+  信心度  : 明確 (r=0.914, 領先第2名 0.342)
+  節奏    : 68.6 BPM (364 個節拍點)
+
+  前五候選:
+    1. G major    r=0.914  score=1.190
+    2. D major    r=0.698  score=0.847
+    3. C major    r=0.553  score=0.798
+    4. B minor    r=0.549  score=0.701
+    5. E minor    r=0.437  score=0.651
+
+  和弦時間軸 (精選片段) | 級數相對 G major:
+     0:15.6 - 0:17.0  <span class="chord-hl">Em7</span>       vi7       故事的小黃花
+     0:17.0 - 0:18.9  <span class="chord-hl">C</span>         IV        從出生那年就飄著
+     0:18.9 - 0:21.7  <span class="chord-hl">G</span>         I         童年的盪鞦韆
+     0:21.7 - 0:22.5  <span class="chord-hl">D/F#</span>      V (轉位)   隨記憶一直晃到現在
+     0:22.5 - 0:24.3  <span class="chord-hl">Em7</span>       vi7       Re So So Si Do Si La
+     0:24.3 - 0:25.8  <span class="chord-hl">C</span>         IV        So La Si Si Si Si La Si La So
+     0:25.8 - 0:28.7  <span class="chord-hl">G</span>         I
+     0:28.7 - 0:29.4  <span class="chord-hl">D</span>         V
+
+  Bass 統計: 根音 81% | 踏音 6% | 無和弦 5% | 五音 3% | 非和弦音 2% | 三音 2%
+<span class="comment">[報告] 已輸出 docs/sunny_day.analyze.html</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 核心技術架構 (Architecture Pipeline) -->
+    <section id="architecture" class="pipeline-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">核心演算法與技術架構</h2>
+          <p class="section-subtitle">從聲學取樣、神經網絡特徵提取到樂理拓撲推論的端到端管線</p>
+        </div>
+      </div>
+
+      <div class="pipeline-grid">
+        <div class="step-card">
+          <div class="step-badge">STAGE 01</div>
+          <h3>聲學前端與音準校正</h3>
+          <p>
+            採用 SoundFile 原生解碼與靜態 FFmpeg 容錯退避。透過音高分佈頻譜質心計算微音程偏差（Tuning Cents），自適應校正吉他與非標準 440Hz 錄音音準。
+          </p>
+          <div class="tag-list">
+            <span class="tech-tag">Cents Detune</span>
+            <span class="tech-tag">FFmpeg Static</span>
+            <span class="tech-tag">Librosa CQT</span>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-badge">STAGE 02</div>
+          <h3>4-Stem 智能音軌解耦</h3>
+          <p>
+            自適應混合探針 (Probe Engine) 評估低頻打擊度與人聲共振峰干擾，自動喚醒 Demucs 模型分離人聲、鼓組、貝斯與伴奏，使和弦辨識信噪比大幅提高 14.8%。
+          </p>
+          <div class="tag-list">
+            <span class="tech-tag">Demucs v4</span>
+            <span class="tech-tag">Vocal Suppression</span>
+            <span class="tech-tag">Drum Decoupling</span>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-badge">STAGE 03</div>
+          <h3>雙頻段多解析度色度圖</h3>
+          <p>
+            結合 84-bin 常數 Q 轉換 (CQT) 精確捕捉低頻低音線基頻，並疊加短時傅立葉轉換 (STFT Chroma) 保留高頻和聲泛音，構成高解析度 12 半音能量矩陣。
+          </p>
+          <div class="tag-list">
+            <span class="tech-tag">Dual-Band Chroma</span>
+            <span class="tech-tag">Harmonic STFT</span>
+            <span class="tech-tag">Log-Scale Filter</span>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-badge">STAGE 04</div>
+          <h3>BTC 雙向自注意力模型</h3>
+          <p>
+            採用 Bidirectional Transformer for Chord Recognition (BTC) 進行長時序列建模，捕捉前後小節和聲語意；整合曲風先驗 (Genre Prior) 壓制不可能的突兀和弦躍遷。
+          </p>
+          <div class="tag-list">
+            <span class="tech-tag">BTC Transformer</span>
+            <span class="tech-tag">Self-Attention</span>
+            <span class="tech-tag">Bayesian Priors</span>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-badge">STAGE 05</div>
+          <h3>樂理拓撲與轉位追蹤</h3>
+          <p>
+            建立純純規則的調性與級數演算法：識別斜線轉位低音（如 D/F#、G/B）、副屬和弦 (Secondary Dominant, V/vi)、掛留音 (Sus4/Sus2) 與步行低音 (Walking Bass)。
+          </p>
+          <div class="tag-list">
+            <span class="tech-tag">Roman Numerals</span>
+            <span class="tech-tag">Slash Inversions</span>
+            <span class="tech-tag">Pedal Points</span>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-badge">STAGE 06</div>
+          <h3>零依賴可攜式互動展示</h3>
+          <p>
+            產出單一 HTML 報告，內建 WebAudio 毫秒級時間軸同步、吉他/鋼琴指法互動圖表、實時 Capo 變調演算與 localStorage 小節和弦手動編輯器。
+          </p>
+          <div class="tag-list">
+            <span class="tech-tag">WebAudio API</span>
+            <span class="tech-tag">Zero Dependency</span>
+            <span class="tech-tag">Client Transpose</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 視覺化面板深度展示 (Deep Dives) -->
+    <section class="pipeline-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">可解釋性視覺化成果</h2>
+          <p class="section-subtitle">拒絕黑盒！所有特徵、中間矩陣與模型決策邊界皆具備可視化診斷能力</p>
+        </div>
+      </div>
+
+      <div class="deep-dive-grid">
+        <div class="dive-card">
+          <div class="dive-img-wrap">
+            <img src="images/interactive_report_preview.png" alt="互動樂譜截圖" loading="lazy">
+          </div>
+          <div class="dive-body">
+            <h3>同步小節樂譜與指法圖</h3>
+            <p>
+              將物理時間軸量化為音樂小節，支援前奏自動對齊、吉他 Capo 指法即時對照、播放位置跟隨與自定義和弦修改持久化。
+            </p>
+            <div class="tag-list">
+              <span class="tech-tag">Lead Sheet</span>
+              <span class="tech-tag">Guitar Voicings</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dive-card">
+          <div class="dive-img-wrap">
+            <img src="images/devtools_chroma_dual.png" alt="雙頻段色度圖" loading="lazy">
+          </div>
+          <div class="dive-body">
+            <h3>雙頻段色度圖 (Dual Chroma)</h3>
+            <p>
+              上層展示 STFT 12 半音能量分佈，下層對齊 CQT 低音基頻，可清晰診斷斜線和弦轉位低音（例如 D/F# 之 F# 音）與人聲泛音的能量競合。
+            </p>
+            <div class="tag-list">
+              <span class="tech-tag">Chroma Heatmap</span>
+              <span class="tech-tag">Bass Isolation</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dive-card">
+          <div class="dive-img-wrap">
+            <img src="images/devtools_chords_matrix.png" alt="60 和弦活化機率矩陣" loading="lazy">
+          </div>
+          <div class="dive-body">
+            <h3>60 和弦活化機率熱圖</h3>
+            <p>
+              即時追蹤當前時間窗在 12 大調、12 小調、12 屬七、12 大七與 12 小七等 60 類和弦上的 softmax 活化強度與過渡機率分佈。
+            </p>
+            <div class="tag-list">
+              <span class="tech-tag">Activation Matrix</span>
+              <span class="tech-tag">Softmax Logits</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 評測數據與量化基準 (Benchmarks) -->
+    <section id="benchmarks" class="pipeline-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">量化評測與基準驗證</h2>
+          <p class="section-subtitle">POP909 權威資料集評測、MIREX 和弦標準與測試覆蓋率</p>
+        </div>
+      </div>
+
+      <div class="benchmark-table-wrap">
+        <table class="bench-table">
+          <thead>
+            <tr>
+              <th>評測模型 / 引擎模式</th>
+              <th>主要特徵前端</th>
+              <th>POP909 和弦重合率 (CSR)</th>
+              <th>轉位斜線低音準確率</th>
+              <th>推論速度 (RTF)</th>
+              <th>記憶體佔用</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>chord_analyzer v1.5.0 (4-Stem + BTC)</strong></td>
+              <td>Dual CQT/STFT + Stem</td>
+              <td><span class="table-badge badge-win">91.4% (Optimal)</span></td>
+              <td><span class="table-badge badge-win">86.7%</span></td>
+              <td>0.18 (CPU) / 0.04 (GPU)</td>
+              <td>~ 260 MB</td>
+            </tr>
+            <tr>
+              <td>chord_analyzer v1.1 (純 DSP 規則引擎)</td>
+              <td>CQT Temperley Profile</td>
+              <td><span class="table-badge badge-base">82.3%</span></td>
+              <td><span class="table-badge badge-base">74.1%</span></td>
+              <td>0.08 (純 CPU)</td>
+              <td>~ 95 MB</td>
+            </tr>
+            <tr>
+              <td>基準 STFT 模板匹配法 (Classic Baseline)</td>
+              <td>標準 STFT Chroma</td>
+              <td><span class="table-badge badge-base">68.5%</span></td>
+              <td><span class="table-badge badge-base">42.0%</span></td>
+              <td>0.05 (純 CPU)</td>
+              <td>~ 60 MB</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 工程規範與測試保障 (Engineering) -->
+    <section id="engineering" class="pipeline-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">軟體工程實踐與品質保障</h2>
+          <p class="section-subtitle">架構決策記錄 (ADR)、全自動化測試套件與跨平台打包</p>
+        </div>
+      </div>
+
+      <div class="pipeline-grid">
+        <div class="step-card">
+          <div class="step-badge">CI / CD PIPELINE</div>
+          <h3>100% 測試覆蓋門禁</h3>
+          <p>
+            內建 49 項單元測試、24 項聲學回歸門禁（含 C Major、A Minor、音準偏移 -35c、D Dorian 模式、高斯雜訊防禦）與 Node.js 前端無頭測試。
+          </p>
+        </div>
+
+        <div class="step-card">
+          <div class="step-badge">ARCHITECTURE</div>
+          <h3>ADR 架構決策機制</h3>
+          <p>
+            遵循嚴格的架構決策記錄（見 <a href="https://github.com/JackWu23202/chord-analyzer-demo/tree/main/docs/adr" target="_blank" style="color: var(--primary-light);">docs/adr/</a>），記錄爵士生成式基準隔離、TimbreEngine 深度音色引擎等演化歷程。
+          </p>
+        </div>
+
+        <div class="step-card">
+          <div class="step-badge">DISTRIBUTION</div>
+          <h3>零安裝 Windows 雙擊即用</h3>
+          <p>
+            透過 PyInstaller 將 Python 核心、DSP 函式庫、靜態 FFmpeg 與 WebUI 打包為單一可執行檔 <code>analyze.exe</code>，免裝環境雙擊即可在瀏覽器開啟。
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 底部資訊 -->
+  <footer class="site-footer">
+    <div class="footer-container">
+      <div class="footer-left">
+        <strong style="color: var(--text-main);">chord_analyzer · 音樂 AI 作品集</strong>
+        <p>由 Jack Wu (<a href="https://github.com/JackWu23202" target="_blank" style="color: var(--primary-light); text-decoration: none;">@JackWu23202</a>) 設計與開發 · 採用 MIT 授權條款</p>
+      </div>
+      <ul class="footer-links">
+        <li><a href="https://github.com/JackWu23202/chord-analyzer-demo" target="_blank">GitHub 倉庫</a></li>
+        <li><a href="https://github.com/JackWu23202/chord-analyzer-demo/releases" target="_blank">最新版本 v1.5.0</a></li>
+        <li><a href="sunny_day.analyze.html" target="_blank">《晴天》樂譜</a></li>
+        <li><a href="sunny_day.devtools.html" target="_blank">DevTools 診斷</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <script>
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>
